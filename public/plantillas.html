@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plantillas · Mikyosho</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    main { max-width: 980px; }
+    section.box { background: rgba(28, 22, 48, 0.8); border: 1px solid #3a2e5c; border-radius: 10px; padding: 16px; margin: 16px 0; }
+    section.box h2 { margin: 0 0 6px; font-size: 1.15rem; }
+    section.box p { color: var(--muted); margin: 6px 0; line-height: 1.5; }
+    .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 10px 0; }
+    .preview { width: 100%; max-width: 560px; height: auto; aspect-ratio: auto; border-radius: 8px; border: 1px solid #3a2e5c; background: #2a2145; }
+    .preview.wide { max-width: 800px; }
+    .anims { display: flex; flex-wrap: wrap; gap: 8px; }
+    .anims canvas { width: 120px; height: 120px; aspect-ratio: auto; border-radius: 6px; }
+    .anims figure { margin: 0; text-align: center; font-size: 0.75rem; color: var(--muted); }
+    pre { background: #120e1f; border: 1px solid #3a2e5c; border-radius: 6px; padding: 10px; overflow-x: auto; color: var(--fg); font-size: 0.8rem; white-space: pre-wrap; }
+    .warn { color: #ffb703; }
+    .ok { color: #3ddc97; }
+    input[type=file] { color: var(--muted); }
+    a { color: var(--accent); }
+    .fallback { position: fixed; right: 16px; bottom: 16px; z-index: 10; width: min(360px, calc(100vw - 32px)); max-height: calc(100vh - 32px);
+      overflow: auto; background: #1c1630; border: 2px solid var(--accent); border-radius: 10px; padding: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    .fallback p { margin: 0 0 8px; color: var(--fg); font-size: 0.85rem; line-height: 1.4; }
+    .fallback img { display: block; width: 100%; margin-top: 8px; border-radius: 6px; }
+    .fallback .ghost { float: right; margin: 0 0 6px 8px; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Plantillas <span class="vs">fondos y personajes</span></h1>
+      <a href="/">← Volver al juego</a>
+    </header>
+
+    <section class="box">
+      <h2>1 · Plantilla de personaje (sprite sheet 4×6)</h2>
+      <p>Súbela a ChatGPT junto con la imagen de tu personaje. Indica qué pose va en cada celda: el juego lee la
+        imagen en este orden. Las etiquetas solo se ven aquí; la imagen que se descarga va sin texto.</p>
+      <canvas id="tpl-char" class="preview" width="1024" height="1536"></canvas>
+      <div class="row"><button id="dl-char" type="button">Descargar plantilla-personaje.png</button></div>
+    </section>
+
+    <section class="box">
+      <h2>2 · Referencia de estilo y guía de zonas para fondos</h2>
+      <p><b>Referencia de estilo:</b> súbela a ChatGPT para que copie la estética (ilustración plana, capas de siluetas, degradado).
+        <b>Guía de zonas:</b> muestra qué tapa el juego: el suelo (franja de abajo), las plataformas y los marcadores.</p>
+      <canvas id="tpl-style" class="preview wide" width="1600" height="900"></canvas>
+      <div class="row">
+        <button id="dl-style" type="button">Descargar referencia-estilo-fondo.png</button>
+        <button id="dl-zones" type="button">Descargar guia-zonas.png</button>
+      </div>
+    </section>
+
+    <section class="box">
+      <h2>3 · Probar un personaje</h2>
+      <p>Elige la imagen que te dio ChatGPT. Se quita el fondo, se recorta cada pose y se alinea por los pies.
+        Revisa que las animaciones se vean bien antes de agregarlo al juego.</p>
+      <div class="row">
+        <input id="in-char" type="file" accept="image/png,image/jpeg,image/webp">
+        <label><input id="in-char-left" type="checkbox"> El personaje mira a la izquierda</label>
+      </div>
+      <p id="char-status"></p>
+      <canvas id="char-sheet" class="preview" width="1024" height="1536" hidden></canvas>
+      <div id="char-anims" class="anims"></div>
+      <pre id="char-json" hidden></pre>
+    </section>
+
+    <section class="box">
+      <h2>4 · Probar un fondo</h2>
+      <p>Elige la imagen del fondo. El juego la recorta a 16:9 (centrada) y dibuja encima el suelo y las plataformas.</p>
+      <div class="row">
+        <input id="in-stage" type="file" accept="image/png,image/jpeg,image/webp">
+        <label>Color del suelo <input id="in-floor" type="color" value="#4a3b5c"></label>
+      </div>
+      <canvas id="stage-prev" class="preview wide" width="800" height="450" hidden></canvas>
+      <pre id="stage-json" hidden></pre>
+    </section>
+  </main>
+
+  <script src="sprites.js"></script>
+  <script src="characters.js"></script>
+  <script src="stages.js"></script>
+  <script src="plantillas.js"></script>
+</body>
+</html>

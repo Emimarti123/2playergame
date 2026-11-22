@@ -1,0 +1,23 @@
+{
+  "stages": [
+    { "id": "atardecer", "name": "Atardecer", "builtin": "atardecer" },
+    { "id": "noche", "name": "Noche azul", "builtin": "noche" },
+    { "id": "bambu", "name": "Bosque de bambú", "builtin": "bambu" },
+    { "id": "cerezos", "name": "Cerezos", "builtin": "cerezos" },
+    { "id": "nieve", "name": "Montaña nevada", "builtin": "nieve" },
+    { "id": "volcan", "name": "Volcán", "builtin": "volcan" },
+    { "id": "puerto", "name": "Puerto al amanecer", "builtin": "puerto" },
+    { "id": "faroles", "name": "Aldea de los faroles", "builtin": "faroles" }
+  ],
+  "characters": [
+    { "id": "ninja", "name": "Ninja", "builtin": "ninja" },
+    { "id": "jinsakai", "name": "Jin Sakai", "image": "personajes/jinsakaisprite.png" },
+    { "id": "sekiro", "name": "Sekiro", "image": "personajes/sekirosprite.png" },
+    { "id": "scorpion", "name": "Scorpion", "image": "personajes/scorpionsprite.png" },
+    { "id": "subzero", "name": "Sub-Zero", "image": "personajes/subzerosprite.png" },
+    { "id": "yoshimitsu", "name": "Yoshimitsu", "image": "personajes/yoshimitsusprite.png" },
+    { "id": "kitana", "name": "Kitana", "image": "personajes/kitanasprite.png" },
+    { "id": "emma", "name": "Emma", "image": "personajes/emmasprite.png" },
+    { "id": "atsu", "name": "Atsu", "image": "personajes/atsusprite.png" }
+  ]
+}

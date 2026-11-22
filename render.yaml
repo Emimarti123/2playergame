@@ -1,0 +1,13 @@
+# Despliegue en Render (https://render.com) como Web Service gratuito.
+# Render detecta este archivo con "New → Blueprint" al conectar el repositorio.
+services:
+  - type: web
+    name: mikyosho
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"

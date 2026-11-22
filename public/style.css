@@ -1,0 +1,154 @@
+:root {
+  --bg: #120e1f;
+  --panel: #1c1630;
+  --fg: #f3eefc;
+  --muted: #a69cc0;
+  --red: #e63946;
+  --blue: #3a86ff;
+  --accent: #ffb703;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(ellipse at top, #2a1f45 0%, var(--bg) 60%);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  display: flex;
+  justify-content: center;
+}
+
+main {
+  width: 100%;
+  max-width: 840px;
+  padding: 16px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+h1 { margin: 0; font-size: 1.5rem; letter-spacing: 0.04em; }
+h1 .vs { font-size: 0.9rem; color: var(--accent); font-weight: 600; margin-left: 4px; }
+
+.hud { display: flex; align-items: center; gap: 14px; color: var(--muted); font-size: 0.9rem; }
+#role { color: var(--fg); font-weight: 600; }
+#role.red { color: var(--red); }
+#role.blue { color: var(--blue); }
+
+.stage { position: relative; width: 100%; }
+
+canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  background: var(--panel);
+  border: 2px solid #3a2e5c;
+  border-radius: 10px;
+  image-rendering: auto;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  background: rgba(18, 14, 31, 0.7);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.overlay.hidden { display: none; }
+.overlay.clear { background: transparent; pointer-events: none; }
+.overlay.clear #overlay-title { text-shadow: 0 4px 0 #000, 0 0 24px rgba(0, 0, 0, 0.6); }
+
+#overlay-title { margin: 0; font-size: clamp(1.6rem, 6vw, 3rem); font-weight: 800; letter-spacing: 0.03em; }
+#overlay-sub { margin: 0; color: var(--muted); max-width: 46ch; white-space: pre-line; }
+.overlay.clear #overlay-sub { color: var(--fg); text-shadow: 0 2px 0 #000; }
+
+button {
+  margin-top: 8px;
+  padding: 10px 30px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a1200;
+  background: var(--accent);
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+button:hover { filter: brightness(1.1); }
+button:disabled { opacity: 0.5; cursor: default; }
+button.ghost {
+  margin: 0;
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid #3a2e5c;
+  color: var(--fg);
+  font-size: 1rem;
+}
+
+.help { color: var(--muted); font-size: 0.85rem; text-align: center; line-height: 1.7; }
+.help p { margin: 10px 0 0; }
+kbd {
+  background: #2a2145;
+  border: 1px solid #4a3c75;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 0.8rem;
+  color: var(--fg);
+}
+
+/* ---------- Menú de personaje y escenario ---------- */
+.overlay.with-menu { overflow-y: auto; }
+.menu { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 640px; margin-top: 4px; }
+.menu[hidden] { display: none; }
+.menu-row { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.menu-label { font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.card {
+  --sel: var(--accent);
+  margin: 0;
+  padding: 4px 4px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: rgba(42, 33, 69, 0.85);
+  color: var(--fg);
+  border: 2px solid #4a3c75;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+.card canvas { display: block; width: auto; height: 54px; aspect-ratio: auto; background: transparent; border: 0; border-radius: 4px; }
+.card.selected { border-color: var(--sel); box-shadow: 0 0 0 2px var(--sel); }
+.card-tag { font-size: 0.65rem; color: var(--muted); }
+.card-tag:empty { display: none; }
+.help a { color: var(--accent); }
+
+/* Menú compacto: que quepan muchos personajes sin empujar el título ni el botón fuera */
+.overlay.with-menu { gap: 4px; padding: 10px; }
+.overlay.with-menu #overlay-title { font-size: clamp(1.2rem, 4vw, 1.9rem); }
+.overlay.with-menu #overlay-sub { font-size: 0.85rem; }
+.overlay.with-menu button#btn-ready,
+.overlay.with-menu button#btn-rematch { margin-top: 4px; padding: 8px 26px; }
+.menu { gap: 6px; max-width: 100%; }
+.cards { gap: 6px; }
+#menu-chars .card { padding: 3px 4px 4px; font-size: 0.7rem; min-width: 58px; }
+#menu-chars .card canvas { height: 40px; }
+#menu-stages .card { padding: 3px 3px 4px; font-size: 0.7rem; }
+#menu-stages .card canvas { height: 40px; }
+.card-tag { font-size: 0.6rem; }
