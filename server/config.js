@@ -71,7 +71,7 @@ function getConfig() {
     WIN_SCORE: num('WIN_SCORE', 3), // rondas para ganar
 
     TICK_RATE: 60,
-    STATE_RATE: 30,
+    STATE_RATE: 60, // estado a cada tick: menos retraso para el rival
 
     COUNTDOWN_MS: 3000,
     POINT_PAUSE_MS: 2600, // KO visible → se reacomoda → "¡Pelea!"

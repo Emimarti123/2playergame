@@ -3,7 +3,10 @@
 
   const { W, H, GROUND_Y, PLATFORMS } = window.Stages;
   const SPAWN = { left: 150, right: 650 };
-  const INTERP_DELAY = 100; // ms de buffer para interpolar
+  const INTERP_DELAY = 50; // ms de buffer para interpolar al RIVAL (el estado llega 60 veces por segundo)
+  const STEP = 1 / 60; // tick fijo, igual que el servidor
+  const SIM_PHASES = ['COUNTDOWN', 'PLAYING', 'POINT_PAUSE']; // fases en las que el servidor simula
+  const PREDICTED_SOUNDS = new Set(['jump', 'throw', 'slash']); // suenan al instante con la predicción
   const SNAP_DIST = 120; // si un ninja salta más que esto (reinicio de ronda) no se interpola
   const FPS = { idle: 6, run: 12, throw: 10, hurt: 8, ko: 1, stun: 6 };
 
@@ -85,7 +88,16 @@
   let storedId = null;
   try { storedId = sessionStorage.getItem('ninjaPlayerId'); } catch (_) { /* sin storage */ }
 
-  const socket = io({ auth: { playerId: storedId } });
+  // WebSocket directo (sin el "polling" inicial); si la red no lo permite, cae a polling
+  const socket = io({ auth: { playerId: storedId }, transports: ['websocket', 'polling'] });
+
+  // ---------------------------------------------------------------------------
+  // Predicción: tu ninja se simula aquí al instante con la misma física del servidor
+  // (game-core.js) y se corrige con cada estado oficial. El rival se interpola.
+  // ---------------------------------------------------------------------------
+  let predictor = null;
+  let predAcc = 0;
+  const predOffset = { x: 0, y: 0 }; // suaviza las correcciones para que no se vean saltos
 
   let mySide = null;
   let phase = null; // último payload de 'phase'
@@ -97,8 +109,13 @@
   let pendingEvents = []; // { at, ev } — se disparan cuando el render alcanza ese momento
   let last = null; // último snapshot recibido (para el HUD)
 
-  socket.on('joined', ({ side, playerId }) => {
+  socket.on('joined', ({ side, playerId, cfg }) => {
     mySide = side;
+    predictor = cfg && window.GameCore ? window.GameCore.createPredictor(cfg, side) : null;
+    predAcc = 0;
+    predOffset.x = predOffset.y = 0;
+    sent = ''; // reenviar el estado de teclas actual con numeración nueva
+    syncInput();
     kicked = false;
     try { sessionStorage.setItem('ninjaPlayerId', playerId); } catch (_) { /* ignore */ }
     elRole.textContent = ''; // solo se usa para avisos (reconectando, sin cupo…)
@@ -151,6 +168,13 @@
     if (snaps.length > 30) snaps.shift();
     for (const ev of s.events || []) pendingEvents.push({ at, ev });
     last = s;
+    const me = mySide && s.players[mySide];
+    if (predictor && me && me.st) {
+      const r = predictor.reconcile(me.st, me.n, me.nt, STEP);
+      predOffset.x -= r.dx;
+      predOffset.y -= r.dy;
+      if (Math.hypot(predOffset.x, predOffset.y) > 80) predOffset.x = predOffset.y = 0; // teletransporte (nueva ronda)
+    }
   });
 
   socket.on('opponent_left', ({ graceMs }) => {
@@ -272,7 +296,8 @@
     const key = JSON.stringify(st);
     if (key !== sent) {
       sent = key;
-      socket.emit('input', st);
+      if (predictor) socket.emit('input', { ...st, n: predictor.setInput(st) });
+      else socket.emit('input', st);
     }
   }
   window.addEventListener('keydown', (e) => {
@@ -465,8 +490,12 @@
 
   function handleEvent(ev) {
     switch (ev.type) {
-      case 'throw': sfx('throw'); break;
-      case 'jump': sfx('jump'); break;
+      case 'throw':
+      case 'jump':
+      case 'slash':
+        // Los de tu ninja ya sonaron al instante con la predicción
+        if (!(predictor && ev.side === mySide)) sfx(ev.type);
+        break;
       case 'hit':
         sfx(ev.kind === 'stomp' ? 'stomp' : 'hit');
         burst(ev.x, ev.y, SIDE_INFO[ev.side].color, 16, 260);
@@ -478,7 +507,6 @@
         burst(ev.x, ev.y, '#ffe066', ev.kind === 'sword' ? 24 : 14, ev.kind === 'sword' ? 320 : 240);
         if (ev.kind === 'sword') shake = Math.max(shake, 7);
         break;
-      case 'slash': sfx('slash'); break;
       case 'parry':
         sfx('parry');
         burst(ev.x, ev.y, '#ffffff', 18, 300);
@@ -800,6 +828,7 @@
   }
 
   let prevNow = performance.now();
+  let prevNowRaw = performance.now();
   function frame(now) {
     const dt = Math.min(0.05, (now - prevNow) / 1000);
     prevNow = now;
@@ -809,6 +838,37 @@
 
     const playing = phase && ['COUNTDOWN', 'PLAYING', 'POINT_PAUSE', 'GAME_OVER'].includes(phase.phase);
     const state = (playing && interpolated(target)) || idlePreview();
+
+    // Predicción: ticks fijos de tu ninja mientras el servidor también simula
+    const simulating = predictor && phase && SIM_PHASES.includes(phase.phase) && !opponentGrace;
+    if (simulating) {
+      predAcc = Math.min(predAcc + (now - prevNowRaw) / 1000, 0.25);
+      while (predAcc >= STEP) {
+        for (const ev of predictor.tick(STEP, phase.phase !== 'PLAYING')) {
+          if (ev.side === mySide && PREDICTED_SOUNDS.has(ev.type)) sfx(ev.type);
+        }
+        predAcc -= STEP;
+      }
+      const k = Math.exp(-dt * 14);
+      predOffset.x *= k;
+      predOffset.y *= k;
+      const me = predictor.player;
+      const C = window.GameCore;
+      state.players = { ...state.players };
+      state.players[mySide] = {
+        x: me.x + predOffset.x,
+        y: me.y + predOffset.y,
+        vy: me.vy,
+        f: me.facing,
+        hp: me.hp,
+        a: C.anim(me),
+        k: C.animPhase(predictor.cfg, me),
+        inv: me.invT > 0,
+      };
+    } else {
+      predAcc = 0;
+    }
+    prevNowRaw = now;
 
     updateParticles(dt);
     updateOverlayTick();

@@ -269,3 +269,19 @@ test('input acepta espada (a) y parry (p)', () => {
   duel.tick(16);
   assert.equal(duel.snapshot().players.left.a, 'slash');
 });
+
+test('input con número (n): el snapshot reporta el último aplicado y los ticks desde él', () => {
+  assert.deepEqual(Duel.parseInput({ r: true, n: 7 }), { r: true });
+  assert.equal(Duel.parseInput({ r: true, n: -1 }), null);
+  assert.equal(Duel.parseInput({ r: true, n: 1.5 }), null);
+  assert.equal(Duel.parseInput({ r: true, n: '3' }), null);
+  const { duel } = setup();
+  startPlaying(duel);
+  duel.input('left', { r: true, n: 5 });
+  duel.tick(1000 / 60);
+  duel.tick(1000 / 60);
+  const s = duel.snapshot().players.left;
+  assert.equal(s.n, 5);
+  assert.equal(s.nt, 2);
+  assert.ok(Array.isArray(s.st));
+});

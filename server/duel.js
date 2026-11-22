@@ -97,11 +97,16 @@ class Duel {
 
   // ---------- Acciones de jugador ----------
 
-  // Valida el input: objeto con, a lo más, las acciones l/r/u/d/f/a/p en booleano.
+  // Valida el input: objeto con, a lo más, las acciones l/r/u/d/f/a/p en booleano
+  // y opcionalmente n = número de input (entero ≥ 0) que usa la predicción del cliente.
   static parseInput(msg) {
     if (!msg || typeof msg !== 'object' || Array.isArray(msg)) return null;
     const out = {};
     for (const k of Object.keys(msg)) {
+      if (k === 'n') {
+        if (!Number.isSafeInteger(msg.n) || msg.n < 0) return null;
+        continue;
+      }
       if (!INPUT_KEYS.includes(k) || typeof msg[k] !== 'boolean') return null;
       out[k] = msg[k];
     }
@@ -113,6 +118,11 @@ class Duel {
     const parsed = Duel.parseInput(msg);
     if (!parsed) return false;
     G.setInput(this.game, side, parsed);
+    if (msg.n !== undefined) {
+      const p = this.game.players[side];
+      p.seq = msg.n;
+      p.seqTicks = 0;
+    }
     return true;
   }
 
@@ -342,6 +352,10 @@ class Duel {
         a: G.anim(p),
         k: G.animPhase(this.cfg, p),
         inv: p.invT > 0,
+        // Para la predicción del dueño: estado completo, último input aplicado y ticks desde él
+        st: G.exportState(p),
+        n: p.seq,
+        nt: p.seqTicks,
       };
     }
     return {

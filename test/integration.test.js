@@ -135,3 +135,12 @@ test('select: el jugador cambia escenario y personaje; un id fuera del catálogo
     assert.equal(server.duel.stagePicks.left, 'noche');
     assert.equal(server.duel.chars.left, 'ninja');
   }));
+
+test('sirve la física compartida para la predicción y manda la configuración al entrar', () =>
+  withServer(async ({ url, connect }) => {
+    const js = await (await fetch(url + '/game-core.js')).text();
+    assert.match(js, /createPredictor/);
+    const a = await connect('player-aaaa');
+    assert.equal(typeof a.joined.cfg.GRAVITY, 'number');
+    assert.equal(a.joined.cfg.PORT, undefined, 'no se mandan datos del servidor');
+  }));

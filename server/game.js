@@ -1,12 +1,16 @@
-'use strict';
-
 // Lógica pura de Mikyosho: sin sockets ni timers. Todo se mueve con dt (segundos).
+// Este archivo se usa en el SERVIDOR (require) y en el NAVEGADOR (/game-core.js →
+// window.GameCore), para que el cliente pueda predecir el movimiento de su propio ninja
+// con exactamente la misma física.
 // Física de plataformas basada en el ejemplo de sprite (gravedad, aterrizaje sobre
 // obstáculos, AABB) y estructura de juego basada en el Pong dual.
 //
 // Input por jugador: l/r moverse, u saltar, d bajar, f shuriken, a espadazo, p parry.
 // Acciones (p.action): 'slash' (espadazo) · 'parry' (ventana activa) · 'parryFail'
 // (parry que no paró nada: vulnerable) · 'stun' (aturdido tras chocar con un parry).
+
+(function () {
+'use strict';
 
 const SIDES = ['left', 'right'];
 const opposite = (s) => (s === 'left' ? 'right' : 'left');
@@ -40,6 +44,9 @@ function makePlayer(cfg, side) {
     action: null,
     actionT: 0,
     slashHit: false, // este espadazo ya golpeó (o fue parado / chocó)
+    // Para la predicción del cliente: último input recibido (número) y ticks simulados desde él
+    seq: 0,
+    seqTicks: 0,
   };
 }
 
@@ -62,9 +69,11 @@ function pushEvent(game, ev) {
 // Reinicia posiciones, vida y proyectiles (inicio de cada ronda). Conserva el marcador.
 function resetRound(game) {
   for (const s of SIDES) {
-    const keepInput = game.players[s].input;
+    const old = game.players[s];
     game.players[s] = makePlayer(game.cfg, s);
-    game.players[s].input = keepInput;
+    game.players[s].input = old.input;
+    game.players[s].seq = old.seq;
+    game.players[s].seqTicks = old.seqTicks;
   }
   game.stars = [];
 }
@@ -389,6 +398,8 @@ function moveStars(game, dt, frozen) {
 // `frozen`: sin input ni daño (cuenta regresiva / pausa tras KO), pero con gravedad.
 function step(game, dt, { frozen = false } = {}) {
   const { left, right } = game.players;
+  left.seqTicks++;
+  right.seqTicks++;
   movePlayer(game, left, dt, frozen);
   movePlayer(game, right, dt, frozen);
 
@@ -432,8 +443,104 @@ function drainEvents(game) {
   return ev;
 }
 
-module.exports = {
+// ---------------------------------------------------------------------------
+// Estado completo de un ninja (para mandarlo al cliente y reconstruirlo allá)
+// ---------------------------------------------------------------------------
+const STATE_FIELDS = ['x', 'y', 'prevY', 'vx', 'vy', 'grounded', 'facing', 'hp', 'jumpBuf', 'fireBuf', 'attackBuf',
+  'parryBuf', 'canCut', 'cooldown', 'throwT', 'hurtT', 'invT', 'dropT', 'action', 'actionT', 'slashHit'];
+
+function exportState(p) {
+  return STATE_FIELDS.map((k) => p[k]);
+}
+
+function importState(p, st) {
+  STATE_FIELDS.forEach((k, i) => { p[k] = st[i]; });
+}
+
+// ---------------------------------------------------------------------------
+// Predicción del lado del cliente (client-side prediction + reconciliación)
+//
+// El cliente simula SU ninja al instante con su input, en ticks fijos, y guarda un
+// historial. Cada snapshot del servidor trae el estado oficial del ninja junto con el
+// número del último input que el servidor aplicó (n) y cuántos ticks simuló desde
+// entonces (nt). El cliente toma ese estado como verdad y vuelve a simular encima
+// los ticks que el servidor todavía no había procesado.
+// ---------------------------------------------------------------------------
+const HISTORY_MAX = 240; // 4 s a 60 ticks/s
+
+function createPredictor(cfg, side) {
+  const game = createGame(cfg);
+  let seq = 0; // número del último input local
+  let input = { ...NO_INPUT };
+  let pending = []; // inputs aplicados desde el último tick: [{ seq, input }]
+  // Por tick: seq vigente, k = cuántos ticks lleva ese seq (1, 2, …), input vigente,
+  // inputs aplicados justo antes del tick y si fue "congelado" (cuenta regresiva / pausa).
+  let history = [];
+  let curK = 0;
+
+  function tickRaw(dt, frozen) {
+    movePlayer(game, game.players[side], dt, frozen);
+    game.stars = []; // los shurikens los dibuja el servidor
+  }
+
+  return {
+    get player() { return game.players[side]; },
+    cfg,
+
+    // Nuevo estado de teclas: se aplica de inmediato y devuelve su número para mandarlo al servidor
+    setInput(next) {
+      seq += 1;
+      input = { ...NO_INPUT, ...next };
+      setInput(game, side, input);
+      pending.push({ seq, input });
+      curK = 0;
+      return seq;
+    },
+
+    // Un tick de simulación local. Devuelve los eventos (salto, lanzar, espadazo) para sonar al instante.
+    tick(dt, frozen) {
+      curK += 1;
+      history.push({ seq, k: curK, input, applied: pending, frozen });
+      pending = [];
+      if (history.length > HISTORY_MAX) history.shift();
+      tickRaw(dt, frozen);
+      return drainEvents(game);
+    },
+
+    // Corrige con el estado del servidor (tras n/nt). Devuelve cuánto se movió el ninja.
+    reconcile(st, n, nt, dt) {
+      const p = game.players[side];
+      const bx = p.x, by = p.y;
+      importState(p, st);
+      // ¿Qué tick local corresponde al estado del servidor? El k-ésimo tick con el input n.
+      const idx = history.findIndex((h) => h.seq === n && h.k === nt);
+      let from;
+      if (idx >= 0) {
+        from = idx + 1;
+        p.input = { ...history[idx].input };
+      } else {
+        // No se puede alinear exacto (p. ej. el servidor aún no recibe nuestros inputs):
+        // se repiten solo los ticks con inputs que el servidor todavía no conoce.
+        from = history.findIndex((h) => h.seq > n);
+        if (from < 0) from = history.length;
+        p.input = { ...(from > 0 ? history[from - 1].input : p.input) };
+      }
+      for (let i = from; i < history.length; i++) {
+        for (const a of history[i].applied) if (a.seq > n) setInput(game, side, a.input);
+        tickRaw(dt, history[i].frozen);
+      }
+      for (const a of pending) setInput(game, side, a.input);
+      p.input = { ...input };
+      drainEvents(game); // los sonidos ya sonaron en vivo
+      history = history.slice(from);
+      return { dx: p.x - bx, dy: p.y - by, aligned: idx >= 0 };
+    },
+  };
+}
+
+const api = {
   SIDES,
+  NO_INPUT,
   opposite,
   createGame,
   resetRound,
@@ -443,4 +550,11 @@ module.exports = {
   anim,
   animPhase,
   drainEvents,
+  exportState,
+  importState,
+  createPredictor,
 };
+
+if (typeof module !== 'undefined' && module.exports) module.exports = api;
+else globalThis.GameCore = api;
+})();

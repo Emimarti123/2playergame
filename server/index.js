@@ -16,10 +16,15 @@ function createServer(opts = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.use(express.static(path.join(__dirname, '..', 'public')));
+  // La misma física del servidor, para la predicción del cliente
+  app.get('/game-core.js', (_req, res) => res.type('application/javascript').sendFile(path.join(__dirname, 'game.js')));
   app.get('/health', (_req, res) => res.json({ ok: true, phase: duel.phase }));
 
   const httpServer = http.createServer(app);
   const io = new Server(httpServer);
+
+  // Constantes de física que necesita el cliente para predecir (sin datos del servidor)
+  const { PORT, ALLOW_SAME_BROWSER, catalog, ...clientCfg } = cfg;
 
   const duel = new Duel(cfg, (event, payload, side) => {
     if (event === 'kick') {
@@ -65,7 +70,7 @@ function createServer(opts = {}) {
       if (old) old.disconnect(true);
     }
     socket.join(ROOM);
-    socket.emit('joined', { side: res.side, playerId: socket.data.playerId });
+    socket.emit('joined', { side: res.side, playerId: socket.data.playerId, cfg: clientCfg });
     socket.emit('phase', duel.phasePayload());
 
     // Límite de frecuencia de mensajes (por socket)
@@ -103,24 +108,31 @@ function createServer(opts = {}) {
     socket.on('disconnect', () => duel.leave(socket.id));
   });
 
-  // Bucle del servidor: simulación a TICK_RATE con dt real, `state` a STATE_RATE.
+  // Bucle del servidor: pasos FIJOS de 1/TICK_RATE s (igual que la predicción del cliente,
+  // así ambos simulan lo mismo), acumulando el tiempo real. `state` cada TICK_RATE/STATE_RATE pasos.
   let timer = null;
   function startLoop() {
+    const STEP = 1000 / cfg.TICK_RATE;
+    const STEPS_PER_STATE = Math.max(1, Math.round(cfg.TICK_RATE / cfg.STATE_RATE));
     let last = process.hrtime.bigint();
-    let stateAcc = 0;
+    let acc = 0;
+    let stepCount = 0;
     timer = setInterval(() => {
       const now = process.hrtime.bigint();
-      let dt = Number(now - last) / 1e6;
+      acc += Number(now - last) / 1e6;
       last = now;
-      if (dt > 100) dt = 100;
-      duel.tick(dt);
-      stateAcc += dt;
-      if (stateAcc >= 1000 / cfg.STATE_RATE) {
-        stateAcc %= 1000 / cfg.STATE_RATE;
+      if (acc > 250) acc = 250; // si el proceso se trabó, no intentar ponerse al día de golpe
+      let sendState = false;
+      while (acc >= STEP) {
+        duel.tick(STEP);
+        acc -= STEP;
+        if (++stepCount % STEPS_PER_STATE === 0) sendState = true;
+      }
+      if (sendState) {
         const room = io.sockets.adapter.rooms.get(ROOM);
         if (room && room.size) io.to(ROOM).emit('state', duel.snapshot());
       }
-    }, 1000 / cfg.TICK_RATE);
+    }, 4);
   }
 
   return {
