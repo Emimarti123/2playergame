@@ -81,6 +81,8 @@ function getConfig() {
     INPUT_MAX_PER_SEC: 120,
 
     ALLOW_SAME_BROWSER: process.env.ALLOW_SAME_BROWSER === '1',
+    // Render define RENDER=true en sus servicios; HIDE_TOOLS=1 fuerza lo mismo en otro sitio
+    HIDE_TOOLS: process.env.RENDER === 'true' || process.env.HIDE_TOOLS === '1',
   };
 }
 

@@ -15,6 +15,10 @@ function createServer(opts = {}) {
   const cfg = { ...getConfig(), ...opts };
   const app = express();
   app.disable('x-powered-by');
+  // Las plantillas y probadores (personajes/fondos) son herramientas locales: no se sirven en Render
+  if (cfg.HIDE_TOOLS) {
+    app.get(['/plantillas.html', '/plantillas.js', '/plantillas'], (_req, res) => res.sendStatus(404));
+  }
   app.use(express.static(path.join(__dirname, '..', 'public')));
   // La misma física del servidor, para la predicción del cliente
   app.get('/game-core.js', (_req, res) => res.type('application/javascript').sendFile(path.join(__dirname, 'game.js')));
@@ -24,7 +28,7 @@ function createServer(opts = {}) {
   const io = new Server(httpServer);
 
   // Constantes de física que necesita el cliente para predecir (sin datos del servidor)
-  const { PORT, ALLOW_SAME_BROWSER, catalog, ...clientCfg } = cfg;
+  const { PORT, ALLOW_SAME_BROWSER, HIDE_TOOLS, catalog, ...clientCfg } = cfg;
 
   const duel = new Duel(cfg, (event, payload, side) => {
     if (event === 'kick') {
