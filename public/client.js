@@ -277,11 +277,11 @@
   // ---------------------------------------------------------------------------
   // Input: se manda el estado de las 5 acciones solo cuando cambia
   // ---------------------------------------------------------------------------
-  // W A S D moverse · Q espadazo · E shuriken · Shift izquierdo parry (las flechas también mueven)
+  // W A S D moverse (Espacio también salta) · Q espadazo · E shuriken · Shift izquierdo parry (las flechas también mueven)
   const KEYMAP = {
     KeyA: 'l', ArrowLeft: 'l',
     KeyD: 'r', ArrowRight: 'r',
-    KeyW: 'u', ArrowUp: 'u',
+    KeyW: 'u', ArrowUp: 'u', Space: 'u',
     KeyS: 'd', ArrowDown: 'd',
     KeyQ: 'a',
     KeyE: 'f',

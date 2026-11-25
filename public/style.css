@@ -22,7 +22,7 @@ body {
 
 main {
   width: 100%;
-  max-width: 840px;
+  max-width: 1600px;
   padding: 16px;
 }
 
@@ -43,7 +43,8 @@ h1 .vs { font-size: 0.9rem; color: var(--accent); font-weight: 600; margin-left:
 #role.red { color: var(--red); }
 #role.blue { color: var(--blue); }
 
-.stage { position: relative; width: 100%; }
+/* Lo más grande posible sin que la arena se salga de la pantalla a lo alto */
+.stage { position: relative; width: 100%; max-width: calc((100vh - 90px) * 16 / 9); margin: 0 auto; }
 
 canvas {
   display: block;

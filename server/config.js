@@ -64,7 +64,7 @@ function getConfig() {
     PARRY_FAIL_S: 0.4,
     PARRY_REACH: 16, // margen extra frente al personaje para atrapar shurikens
     PARRY_INVULN_S: 0.25,
-    STUN_S: 0.6, // atacante aturdido tras un parry
+    STUN_S: 1.2, // atacante aturdido tras un parry
     STUN_PUSH: 60, // poco: quien hizo parry alcanza a contraatacar
     REFLECT_SPEEDUP: 1.3, // el shuriken devuelto sale más rápido
 
